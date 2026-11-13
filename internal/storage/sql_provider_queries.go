@@ -674,7 +674,7 @@ const (
 		WHERE id = ? AND responded_at IS NOT NULL AND granted = FALSE;`
 
 	queryFmtSelectOAuth2Session = `
-		SELECT id, challenge_id, request_id, client_id, signature, subject, requested_at,
+		SELECT id, challenge_id, request_id, client_id, session_id, signature, subject, requested_at,
 		requested_scopes, granted_scopes, requested_audience, granted_audience,
 		requested_resource, granted_resource,
 		active, revoked, form_data, session_data
@@ -682,7 +682,7 @@ const (
 		WHERE signature = ? AND revoked = FALSE;`
 
 	queryFmtSelectOAuth2SessionIncludingRevoked = `
-		SELECT id, challenge_id, request_id, client_id, signature, subject, requested_at,
+		SELECT id, challenge_id, request_id, client_id, session_id, signature, subject, requested_at,
 		requested_scopes, granted_scopes, requested_audience, granted_audience,
 		requested_resource, granted_resource,
 		active, revoked, form_data, session_data
@@ -690,19 +690,19 @@ const (
 		WHERE signature = ?;`
 
 	queryFmtInsertOAuth2Session = `
-		INSERT INTO %s (challenge_id, request_id, client_id, signature, subject, requested_at,
+		INSERT INTO %s (challenge_id, request_id, client_id, session_id, signature, subject, requested_at,
 		requested_scopes, granted_scopes, requested_audience, granted_audience,
 		requested_resource, granted_resource,
 		active, revoked, form_data, session_data)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 
 	//nolint:gosec // Not a Credential.
 	queryFmtInsertOAuth2RefreshTokenSession = `
-		INSERT INTO %s (challenge_id, request_id, client_id, signature, subject, requested_at,
+		INSERT INTO %s (challenge_id, request_id, client_id, session_id, signature, subject, requested_at,
 		requested_scopes, granted_scopes, requested_audience, granted_audience,
 		requested_resource, granted_resource,
 		active, revoked, form_data, session_data, access_signature)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 
 	queryFmtSelectOAuth2RefreshTokenSessionAccessSignature = `
 		SELECT access_signature
@@ -719,6 +719,34 @@ const (
 		SET revoked = TRUE
 		WHERE request_id = ? AND revoked = FALSE;`
 
+	queryFmtInsertOAuth2LogoutSession = `
+		INSERT INTO %s (flow_id, client_id, subject, sid, redirect_uri, state, created_at, expires_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?);`
+
+	queryFmtSelectOAuth2LogoutSession = `
+		SELECT id, flow_id, client_id, subject, sid, redirect_uri, state, created_at, expires_at
+		FROM %s
+		WHERE flow_id = ?;`
+
+	queryFmtDeleteOAuth2LogoutSession = `
+		DELETE FROM %s
+		WHERE flow_id = ?;`
+
+	queryFmtDeleteOAuth2LogoutSessionsExpired = `
+		DELETE FROM %s
+		WHERE expires_at < ?;`
+
+	queryFmtRevokeOAuth2SessionBySessionID = `
+		UPDATE %s
+		SET revoked = TRUE
+		WHERE session_id = ? AND revoked = FALSE;`
+
+	//nolint:gosec // Not a Credential.
+	queryFmtSelectOAuth2RefreshTokenSessionScopesBySessionID = `
+		SELECT signature, granted_scopes
+		FROM %s
+		WHERE session_id = ? AND revoked = FALSE;`
+
 	queryFmtDeactivateOAuth2Session = `
 		UPDATE %s
 		SET active = FALSE
@@ -730,7 +758,7 @@ const (
 		WHERE request_id = ? AND active = TRUE;`
 
 	queryFmtSelectOAuth2DeviceCodeSession = `
-		SELECT id, challenge_id, request_id, client_id, signature, user_code_signature, status, subject,
+		SELECT id, challenge_id, request_id, client_id, session_id, signature, user_code_signature, status, subject,
 		requested_at, checked_at, requested_scopes, granted_scopes, requested_audience, granted_audience,
 		requested_resource, granted_resource,
 		active, revoked, form_data, session_data
@@ -738,7 +766,7 @@ const (
 		WHERE signature = ? AND revoked = FALSE;`
 
 	queryFmtSelectOAuth2DeviceCodeSessionByUserCode = `
-		SELECT id, challenge_id, request_id, client_id, signature, user_code_signature, status, subject,
+		SELECT id, challenge_id, request_id, client_id, session_id, signature, user_code_signature, status, subject,
 		requested_at, checked_at, requested_scopes, granted_scopes, requested_audience, granted_audience,
 		requested_resource, granted_resource,
 		active, revoked, form_data, session_data
@@ -746,11 +774,11 @@ const (
 		WHERE user_code_signature = ? AND revoked = FALSE;`
 
 	queryFmtInsertOAuth2DeviceCodeSession = `
-		INSERT INTO %s (challenge_id, request_id, client_id, signature, user_code_signature, status, subject,
+		INSERT INTO %s (challenge_id, request_id, client_id, session_id, signature, user_code_signature, status, subject,
 		requested_at, checked_at, requested_scopes, granted_scopes, requested_audience, granted_audience,
 		requested_resource, granted_resource,
 		active, revoked, form_data, session_data)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 
 	queryFmtUpdateOAuth2DeviceCodeSession = `
 		UPDATE %s
@@ -758,6 +786,7 @@ const (
 			challenge_id = ?,
 			request_id = ?,
 			client_id = ?,
+			session_id = ?,
 			status = ?,
 			subject = ?,
 			requested_at = ?,
@@ -779,6 +808,7 @@ const (
 		SET
 			challenge_id = ?,
 			client_id = ?,
+			session_id = ?,
 			status = ?,
 			subject = ?,
 			requested_scopes = ?,
@@ -796,6 +826,7 @@ const (
 		SET
 			challenge_id = ?,
 			client_id = ?,
+			session_id = ?,
 			status = ?,
 			subject = ?,
 			requested_scopes = ?,
@@ -809,21 +840,21 @@ const (
 		WHERE signature = ? AND status IN (?, ?);`
 
 	queryFmtSelectOAuth2PARContext = `
-		SELECT id, signature, request_id, client_id, requested_at, scopes, audience, resource,
+		SELECT id, signature, request_id, client_id, session_id, requested_at, scopes, audience, resource,
 		handled_response_types, response_mode, response_mode_default, revoked,
 		form_data, session_data
 		FROM %s
 		WHERE signature = ?;`
 
 	queryFmtInsertOAuth2PARContext = `
-		INSERT INTO %s (signature, request_id, client_id, requested_at, scopes, audience, resource,
+		INSERT INTO %s (signature, request_id, client_id, session_id, requested_at, scopes, audience, resource,
 		handled_response_types, response_mode, response_mode_default, revoked,
 		form_data, session_data)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 
 	queryFmtUpdateOAuth2PARContext = `
 	UPDATE %s
-	SET signature = ?, request_id = ?, client_id = ?, requested_at = ?, scopes = ?, audience = ?, resource = ?,
+	SET signature = ?, request_id = ?, client_id = ?, session_id = ?, requested_at = ?, scopes = ?, audience = ?, resource = ?,
 	    handled_response_types = ?, response_mode = ?, response_mode_default = ?, revoked = ?,
 	    form_data = ?, session_data = ?
 	WHERE id = ?;`
@@ -895,6 +926,41 @@ const (
 		UPDATE %s
 		SET session_data = ?
 		WHERE id = ?;`
+
+	queryFmtInsertOAuth2SessionID = `
+		INSERT INTO %s (issuer, sector_id, public_id, sid, created_at)
+		VALUES(?, ?, ?, ?, ?);`
+
+	queryFmtSelectOAuth2SessionIDBySector = `
+		SELECT id, issuer, sector_id, public_id, sid, created_at
+		FROM %s
+		WHERE issuer = ? AND sector_id = ? AND public_id = ?;`
+
+	queryFmtSelectOAuth2SessionIDBySessionID = `
+		SELECT id, issuer, sector_id, public_id, sid, created_at
+		FROM %s
+		WHERE issuer = ? AND sid = ?;`
+
+	queryFmtSelectOAuth2SessionIDsByPublicID = `
+		SELECT id, issuer, sector_id, public_id, sid, created_at
+		FROM %s
+		WHERE issuer = ? AND public_id = ?
+		ORDER BY id;`
+
+	queryFmtSelectOAuth2SessionIDsOldest = `
+		SELECT id, issuer, sector_id, public_id, sid, created_at
+		FROM %s
+		WHERE id > ?
+		ORDER BY id
+		LIMIT ?;`
+
+	queryFmtDeleteOAuth2SessionID = `
+		DELETE FROM %s
+		WHERE issuer = ? AND sid = ?;`
+
+	queryFmtDeleteOAuth2SessionIDByPublicID = `
+		DELETE FROM %s
+		WHERE issuer = ? AND public_id = ?;`
 )
 
 const (
